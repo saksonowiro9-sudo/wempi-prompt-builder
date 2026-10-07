@@ -240,7 +240,7 @@ Keep all character appearances consistent with the reference images.
 ${_environment()}
 
 Fight Style:
-Authentic ${_or(martialStyle, 'martial arts')} combat.
+Authentic ${_orText(martialStyle, 'martial arts')} combat.
 ${_or(combatDna, 'Fast tactical exchange with rhythm changes, angle changes, feints, timing, and clean scoring techniques.')}
 
 Camera:
