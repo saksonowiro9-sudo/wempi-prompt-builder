@@ -22,14 +22,22 @@ jobs:
       - name: Create Android platform
         run: flutter create --platforms=android .
 
+      - name: Set app name
+        run: |
+          sed -i 's/android:label="wempi_prompt_builder"/android:label="WEMPI PROMPT BUILDER"/' android/app/src/main/AndroidManifest.xml
+
       - name: Get dependencies
         run: flutter pub get
 
       - name: Build APK
         run: flutter build apk --release
 
+      - name: Rename APK
+        run: |
+          cp build/app/outputs/flutter-apk/app-release.apk WempiPromptBuilder.apk
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: WempiPromptBuilder-APK
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: WempiPromptBuilder
+          path: WempiPromptBuilder.apk
