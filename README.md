@@ -1,33 +1,11 @@
-# WEMPI PROMPT BUILDER V1
+# WEMPI PROMPT BUILDER V2
 
-Flutter Android project for a local cinematic video prompt builder.
+Flutter prompt-builder app for cinematic video prompts.
 
-Features:
-- 1 VS 1
-- 1 VS MANY
-- MANY VS MANY
-- Custom opponent count
-- Character / opponent fields
-- Location / venue
-- Combat DNA
-- Action / choreography
-- Timing
-- Camera
-- Lighting
-- Visual style
-- Dialogue
-- Negative prompt
-- Duration
-- Aspect ratio
-- Output language
-- Generate prompt
-- Copy prompt
-
-No API key and no Ollama are required.
-
-Build after installing Flutter + Android Studio:
-flutter pub get
-flutter build apk --release
-
-APK:
-build/app/outputs/flutter-apk/app-release.apk
+V2 adds:
+- Project Format / Mode: Dua Jalan Sang Juara, Street Fight, Custom
+- Combat Type: 1 VS 1, 1 VS MANY, MANY VS MANY, CUSTOM
+- Short choreography input that is expanded into a structured prompt
+- Built-in timing and camera expansion
+- Mode-specific combat DNA and continuity rules
+- Offline operation; no API key and no Ollama required
