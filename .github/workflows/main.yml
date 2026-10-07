@@ -3,7 +3,7 @@ name: Build Wempi Prompt Builder APK
 on:
   workflow_dispatch:
   push:
-  branches:
+   branches:
     - v2
 
 jobs:
