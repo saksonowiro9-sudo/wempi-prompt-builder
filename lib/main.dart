@@ -137,6 +137,11 @@ class _PromptBuilderPageState extends State<PromptBuilderPage> {
     return value.isEmpty ? fallback : value;
   }
 
+  String _orText(String value, String fallback) {
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? fallback : trimmed;
+  }
+
   String _cast() {
     final lines = <String>[];
     lines.add('Image1 = ${_or(mainCharacter, 'Main Fighter')}');
@@ -281,7 +286,7 @@ $combatType
 ${_environment()}
 
 FIGHT STYLE:
-${_or(martialStyle, 'Authentic mixed martial arts')}.
+${_orText(martialStyle, 'Authentic mixed martial arts')}.
 ${_or(combatDna, 'Fast, hard and realistic close-range combat with tactical movement and believable reactions.')}
 
 ACTION / CHOREOGRAPHY:
@@ -330,7 +335,7 @@ ENVIRONMENT:
 ${_environment()}
 
 FIGHT STYLE:
-${_or(martialStyle, 'Authentic martial arts')}.
+${_orText(martialStyle, 'Authentic martial arts')}.
 ${_or(combatDna, 'Fast tactical combat with realistic movement and reactions.')}
 
 ACTION / CHOREOGRAPHY:
