@@ -1,11 +1,9 @@
-# WEMPI PROMPT BUILDER V2
+# WEMPI PROMPT BUILDER V2 — MASTER FORMAT
 
-Flutter prompt-builder app for cinematic video prompts.
+This version uses two locked master/base prompt formats:
 
-V2 adds:
-- Project Format / Mode: Dua Jalan Sang Juara, Street Fight, Custom
-- Combat Type: 1 VS 1, 1 VS MANY, MANY VS MANY, CUSTOM
-- Short choreography input that is expanded into a structured prompt
-- Built-in timing and camera expansion
-- Mode-specific combat DNA and continuity rules
-- Offline operation; no API key and no Ollama required
+- STREET FIGHT — Kanza vs Many master
+- DUA JALAN SANG JUARA — Intan Permatasari vs Nguyen Thi Huong master
+- CUSTOM — all prompt fields cleared
+
+Changing FORMAT immediately loads the corresponding master defaults into the editable fields. The user can edit any field before generating the prompt.
