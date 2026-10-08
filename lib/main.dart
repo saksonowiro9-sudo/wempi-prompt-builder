@@ -517,69 +517,299 @@ $surf
 $env""";
   }
 
-  String _extractBetween(String text, List<String> starts, List<String> ends) {
-    final lower = text.toLowerCase();
-    for (final start in starts) {
-      final i = lower.indexOf(start.toLowerCase());
-      if (i < 0) continue;
-      final from = i + start.length;
-      var to = text.length;
-      for (final end in ends) {
-        final j = lower.indexOf(end.toLowerCase(), from);
-        if (j >= 0 && j < to) to = j;
-      }
-      final value = text.substring(from, to).trim().replaceAll(RegExp(r'[,.!?]+$'), '').trim();
-      if (value.isNotEmpty) return value;
-    }
-    return '';
+  String _cleanInstruction(String input) {
+    return input
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll(RegExp(r',\s*,+'), ', ')
+        .replaceAll(RegExp(r'\.{2,}'), '.')
+        .replaceAll(RegExp(r'\bmaram\b', caseSensitive: false), 'marah')
+        .trim();
+  }
+
+  String _extractFighterName(String value) {
+    var v = value.trim();
+    v = v.replaceAll(RegExp(r'^(karakter|fighter|tokoh)\s*[:=-]\s*', caseSensitive: false), '');
+    return v.replaceAll(RegExp(r'[,.;:]+$'), '').trim();
   }
 
   List<String> _extractFighters(String text) {
+    final clean = _cleanInstruction(text);
     final patterns = [
-      RegExp(r'(.+?)\s+(?:bertarung dengan|melawan|vs\.?|versus)\s+(.+?)(?:,|\.|\s+lokasi\b|\s+di\b|\s+dengan\b|$)', caseSensitive: false),
+      RegExp(r'\b(.+?)\s+bertarung\s+dengan\s+(.+?)(?=\s*(?:,|\.|;|\blokasi\b|\bdi\b|\bdengan\b|\bgunakan\b|\bpakai\b|\bkamera\b|$))', caseSensitive: false),
+      RegExp(r'\b(.+?)\s+melawan\s+(.+?)(?=\s*(?:,|\.|;|\blokasi\b|\bdi\b|\bdengan\b|\bgunakan\b|\bpakai\b|\bkamera\b|$))', caseSensitive: false),
+      RegExp(r'\b(.+?)\s+vs\.?\s+(.+?)(?=\s*(?:,|\.|;|\blokasi\b|\bdi\b|\bdengan\b|\bgunakan\b|\bpakai\b|\bkamera\b|$))', caseSensitive: false),
+      RegExp(r'\b(.+?)\s+versus\s+(.+?)(?=\s*(?:,|\.|;|\blokasi\b|\bdi\b|\bdengan\b|\bgunakan\b|\bpakai\b|\bkamera\b|$))', caseSensitive: false),
     ];
     for (final p in patterns) {
-      final m = p.firstMatch(text.trim());
+      final m = p.firstMatch(clean);
       if (m != null) {
-        final a = m.group(1)?.trim();
-        final b = m.group(2)?.trim();
-        if (a != null && b != null && a.isNotEmpty && b.isNotEmpty) return [a, b];
+        final a = _extractFighterName(m.group(1) ?? '');
+        final b = _extractFighterName(m.group(2) ?? '');
+        if (a.isNotEmpty && b.isNotEmpty) return [a, b];
       }
     }
+    const knownNames = ['Wempi', 'Lusi', 'Aisyah', 'Kanza', 'Keifa', 'Azra', 'Intan', 'Diana', 'Reva', 'Siska', 'Naila', 'Rani', 'Dinda'];
+    final found = <String>[];
+    for (final name in knownNames) {
+      if (RegExp('\\b${RegExp.escape(name)}\\b', caseSensitive: false).hasMatch(clean)) found.add(name);
+    }
+    if (found.length >= 2) return [found[0], found[1]];
     return [];
   }
 
   String _extractLocation(String text) {
-    var v = _extractBetween(text, ['lokasi di ', 'lokasi: ', 'lokasi ', 'tempat di ', 'venue di '],
-        [' dengan ', ' gunakan ', ' pakai ', ' kamera ', ' koreografi ', ' masukin ', ' masukkan ', '.']);
-    if (v.isEmpty) {
-      final m = RegExp(r'\bdi\s+([^,.]+)', caseSensitive: false).firstMatch(text);
-      if (m != null) v = m.group(1)!.trim();
+    final clean = _cleanInstruction(text);
+    final patterns = [
+      RegExp(r'\blokasi\s+(?:di\s+)?([^,.!?;]+)', caseSensitive: false),
+      RegExp(r'\btempat\s+(?:di\s+)?([^,.!?;]+)', caseSensitive: false),
+      RegExp(r'\bvenue\s+(?:di\s+)?([^,.!?;]+)', caseSensitive: false),
+      RegExp(r'\b(?:berlangsung|terjadi)\s+di\s+([^,.!?;]+)', caseSensitive: false),
+      RegExp(r'\bdi\s+([^,.!?;]+)', caseSensitive: false),
+    ];
+    for (final p in patterns) {
+      final m = p.firstMatch(clean);
+      if (m == null) continue;
+      var value = m.group(1)!.trim();
+      value = value.replaceFirst(RegExp(r'\s+(?:tapi|dengan|gunakan|pakai|kamera|dan)\b.*$', caseSensitive: false), '').trim();
+      if (value.isNotEmpty && !RegExp(r'^(akhirnya|akhir|awal|sampai)$', caseSensitive: false).hasMatch(value)) return value;
     }
-    return v;
+    final firstClause = clean.split(RegExp(r'[,.;]')).first.trim();
+    const locationWords = ['kampung', 'taman', 'jalan', 'gang', 'parkiran', 'parkir', 'rumah', 'sekolah', 'pasar', 'hutan', 'pantai', 'lapangan', 'arena', 'gedung'];
+    for (final word in locationWords) {
+      if (firstClause.toLowerCase().contains(word)) return firstClause;
+    }
+    return '';
   }
 
   String _extractTime(String text) {
-    final lower = text.toLowerCase();
-    for (final t in ['pagi hari', 'siang hari', 'sore hari', 'malam hari', 'pagi', 'siang', 'sore', 'malam']) {
+    final lower = _cleanInstruction(text).toLowerCase();
+    const times = [
+      'pagi hari', 'siang hari', 'sore hari', 'malam hari',
+      'pagi', 'siang', 'sore', 'malam', 'subuh', 'senja', 'fajar', 'golden hour',
+    ];
+    for (final t in times) {
       if (lower.contains(t)) return t;
     }
     return '';
   }
 
-  String _extractAfterKeywords(String text, List<String> keys) {
-    final lower = text.toLowerCase();
-    for (final key in keys) {
-      final i = lower.indexOf(key.toLowerCase());
-      if (i >= 0) {
-        var value = text.substring(i + key.length).trim();
-        value = value.replaceFirst(RegExp(r'^[:\-]+\s*'), '');
-        value = value.split(RegExp(r'\s+(?:kamera|camera|lokasi|di lokasi|waktu)\s+', caseSensitive: false)).first;
-        value = value.replaceAll(RegExp(r'[.!?]+$'), '').trim();
-        if (value.isNotEmpty) return value;
-      }
+  String _extractCamera(String text) {
+    final clean = _cleanInstruction(text);
+    final patterns = [
+      RegExp(r'\bkamera\s+(.+?)(?=\s*(?:\.|;|$))', caseSensitive: false),
+      RegExp(r'\bcamera\s+(.+?)(?=\s*(?:\.|;|$))', caseSensitive: false),
+      RegExp(r'\bcamera style\s*[:=-]?\s*(.+?)(?=\s*(?:\.|;|$))', caseSensitive: false),
+    ];
+    for (final p in patterns) {
+      final m = p.firstMatch(clean);
+      if (m != null && (m.group(1)?.trim().isNotEmpty ?? false)) return m.group(1)!.trim();
     }
     return '';
+  }
+
+  String _extractTone(String text) {
+    final lower = _cleanInstruction(text).toLowerCase();
+    if (lower.contains('komedi') || lower.contains('lucu') || lower.contains('kocak') || lower.contains('jenaka') || lower.contains('humor')) {
+      return 'LIGHT COMEDY / PLAYFUL ACTION';
+    }
+    if (lower.contains('romantis') || lower.contains('romance')) return 'ROMANTIC / PLAYFUL';
+    if (lower.contains('brutal') || lower.contains('sadis')) return 'INTENSE / BRUTAL';
+    if (lower.contains('serius') || lower.contains('serious')) return 'SERIOUS / DRAMATIC';
+    if (lower.contains('dramatis') || lower.contains('dramatic')) return 'DRAMATIC / EMOTIONAL';
+    if (lower.contains('tegang') || lower.contains('menegangkan')) return 'TENSE / SUSPENSEFUL';
+    if (lower.contains('santai') || lower.contains('ringan')) return 'LIGHT / CASUAL';
+    return '';
+  }
+
+  List<String> _movementKeywords(String text) {
+    final lower = _cleanInstruction(text).toLowerCase();
+    const known = [
+      'parry', 'palm parry', 'body slip', 'slip', 'counter', 'low kick', 'roundhouse kick',
+      'spinning kick', 'spinning backfist', 'back kick', 'front kick', 'side kick',
+      'sweep', 'elbow', 'punch', 'jab', 'hook', 'cross', 'knee strike', 'body hook',
+      'taijutsu', 'wushu', 'nanquan', 'karate', 'pencak silat', 'silat', 'taekwondo',
+      'salto', 'somersault', 'jumping kick', 'spin', 'spinning', 'feint', 'sidestep',
+      'menghilang', 'muncul', 'mengejar', 'menghindar', 'mengelak', 'memukul', 'menendang',
+      'menyerang', 'menangkis', 'menyergap', 'berputar', 'melompat', 'salto',
+    ];
+    return known.where(lower.contains).toList();
+  }
+
+  String _buildInstructionNarrative(String input) {
+    final clean = _cleanInstruction(input);
+    var narrative = clean;
+    narrative = narrative.replaceFirst(RegExp(r'^.*?\b(?:lokasi|tempat|venue)\s+(?:di\s+)?[^,.!?;]+[,.]?\s*', caseSensitive: false), '');
+    return narrative.trim();
+  }
+
+  String _toneGuidance(String tone) {
+    switch (tone) {
+      case 'LIGHT COMEDY / PLAYFUL ACTION':
+        return '''Tone: light comedy / playful action.
+Use realistic live-action performers, but the rhythm, reactions, facial expressions and timing must clearly communicate comedy.
+Use clean comedic beats, playful misdirection, funny reaction shots, brief pauses only when needed for comedic timing, and believable physical comedy.
+Do NOT turn the scene into a serious martial-arts duel.''';
+      case 'ROMANTIC / PLAYFUL':
+        return '''Tone: romantic / playful live-action.
+Keep physical interaction natural and respectful, with playful reactions and clear emotional chemistry.''';
+      case 'INTENSE / BRUTAL':
+        return '''Tone: intense and brutal live-action action.
+Emphasize force, urgency, impact and serious reactions while preserving realistic human physics.''';
+      case 'SERIOUS / DRAMATIC':
+        return '''Tone: serious dramatic action.
+Maintain controlled performances, serious expressions, purposeful movement and dramatic tension.''';
+      case 'DRAMATIC / EMOTIONAL':
+        return '''Tone: dramatic and emotional.
+Prioritize emotional performance, reaction, tension and story continuity.''';
+      case 'TENSE / SUSPENSEFUL':
+        return '''Tone: tense and suspenseful.
+Build anticipation, uncertainty, controlled pacing and reactive camera language.''';
+      case 'LIGHT / CASUAL':
+        return '''Tone: light and casual live-action.
+Keep the movement natural and approachable without turning it into a heavy combat sequence.''';
+      default:
+        return 'Tone: follow the user instruction while preserving the selected Master format.';
+    }
+  }
+
+  String _dynamicNegativePrompt(String tone, String input) {
+    var n = _or(negative, '');
+    final lower = input.toLowerCase();
+    if (tone == 'LIGHT COMEDY / PLAYFUL ACTION') {
+      return '$n, serious combat tone, grim expression throughout, emotionless performance, generic serious fight choreography, comedy ignored';
+    }
+    if (lower.contains('menghilang') && lower.contains('muncul')) {
+      n = n.replaceAll(RegExp(r'\bteleportation,?\s*', caseSensitive: false), '');
+      return '$n, CGI disappearance, digital dissolve, visual glitch, duplicated body';
+    }
+    return n;
+  }
+
+  void _applySceneContext({
+    required String input,
+    required String main,
+    required String opponent,
+    required String loc,
+    required String time,
+    required String tone,
+    required String choreography,
+    required String cam,
+  }) {
+    final clean = _cleanInstruction(input);
+    final narrative = _buildInstructionNarrative(clean);
+
+    if (main.isNotEmpty) mainCharacter.text = main;
+    if (opponent.isNotEmpty) {
+      opponentCount = format == 'STREET FIGHT' ? 5 : 1;
+      syncOpponents();
+      opponents[0].text = opponent;
+    }
+
+    if (loc.isNotEmpty) {
+      final timeText = time.isEmpty ? '' : ' during $time';
+      if (format == 'STREET FIGHT') {
+        location.text = '$loc$timeText.';
+        environment.text = _streetEnvironmentFor(loc, time);
+      } else if (format == 'DUA JALAN SANG JUARA') {
+        location.text = 'International Martial Arts Championship in $loc.';
+        environment.text = _djsjEnvironmentFor(loc, main, opponent);
+      } else {
+        location.text = '$loc$timeText.';
+        environment.text = 'A realistic $loc environment with coherent spatial continuity throughout the scene.';
+      }
+    } else if (time.isNotEmpty && format == 'STREET FIGHT') {
+      location.text = 'Modern Indonesian sports-complex parking area during $time.';
+      environment.text = _streetEnvironmentFor('modern Indonesian sports-complex parking area', time);
+    }
+
+    final toneBlock = _toneGuidance(tone);
+    final movementBlock = choreography.isEmpty
+        ? 'Preserve the movement requested by the user and develop clear preparation, action, reaction, recovery and transition.'
+        : 'Movement priorities from the user: $choreography';
+
+    combatDna.text = '''Use the selected Master movement foundation while adapting it to the user instruction.
+
+SCENE TONE:
+$toneBlock
+
+MOVEMENT PRIORITY:
+$movementBlock'''.trim();
+
+    shortChoreo.text = '''USER SCENE NARRATIVE:
+$narrative
+
+ACTION DIRECTION:
+Translate the narrative above into a continuous production-ready sequence.
+Preserve the exact order and intent of the user's story beats.
+Do not replace story beats with generic combat.
+Every action must produce a visible reaction and naturally lead into the next beat.
+
+${tone.isEmpty ? '' : '$toneBlock\n\n'}${choreography.isEmpty ? '' : 'Specific movement vocabulary: $choreography\n\n'}End exactly according to the user's described outcome; do not invent unrelated ending beats.'''.trim();
+
+    if (cam.isNotEmpty) {
+      camera.text = '''USER CAMERA DIRECTION:
+$cam
+
+Camera must support the action and tone described by the user while maintaining physical spatial continuity.''';
+    } else if (tone == 'LIGHT COMEDY / PLAYFUL ACTION') {
+      camera.text = '''Use a cinematic reactive live-action camera with readable full-body coverage.
+Use short push-ins, reaction-oriented reframing and controlled tracking to emphasize comedic beats.
+The camera reacts to the performers; no random cuts or impossible movement.''';
+    }
+
+    if (tone == 'LIGHT COMEDY / PLAYFUL ACTION') {
+      style.text = '''Ultra-photorealistic live-action comedy-action.
+Real human performers and realistic anatomy, weight, gravity and contact.
+Natural imperfect skin and believable physical reactions.
+Playful facial expressions and comedic timing while preserving realistic cinematography.
+No cartoon or CGI-looking humans.''';
+      dialogue.text = 'Natural village ambience, footsteps, clothing movement, realistic impacts and clearly timed comedic reactions.';
+    } else if (style.text.trim().isEmpty) {
+      style.text = 'Ultra-photorealistic live-action with realistic human movement, anatomy, weight, gravity and cinematic continuity.';
+    }
+
+    negative.text = _dynamicNegativePrompt(tone, clean);
+
+    final safeMain = main.isEmpty ? _or(mainCharacter, 'Main Fighter') : main;
+    final safeOpp = opponent.isEmpty ? _or(opponents.first, 'Opponent') : opponent;
+    if (format == 'STREET FIGHT') {
+      title.text = '$safeMain vs $safeOpp — ${tone.isEmpty ? 'CINEMATIC MARTIAL ARTS ACTION' : tone}';
+      _replaceAllMasterNames(safeMain, safeOpp);
+    } else if (format == 'DUA JALAN SANG JUARA') {
+      title.text = '$safeMain vs $safeOpp — ${martialStyle == 'CUSTOM / FOLLOW INPUT' ? 'Martial Arts' : martialStyle}';
+      _replaceAllMasterNames(safeMain, safeOpp);
+    } else {
+      title.text = '$safeMain vs $safeOpp — ${tone.isEmpty ? 'CINEMATIC LIVE-ACTION SCENE' : tone}';
+    }
+  }
+
+  String _streetEnvironmentFor(String loc, String time) {
+    final t = time.isEmpty ? 'late afternoon' : time;
+    return '''realistic Indonesian $loc environment during $t, with believable ground surfaces, practical structures, natural background activity and enough open space for the described movement.
+Preserve spatial continuity throughout the entire scene.
+No location changes.
+No sudden environment transformation.''';
+  }
+
+  String _djsjEnvironmentFor(String loc, String main, String opponent) {
+    return '''Indoor international arena in $loc.
+Packed audience.
+Large LED screen above the arena showing the live $main vs $opponent match.
+Blue competition mat.
+Keep the arena, competition mat and LED display consistent throughout the scene.''';
+  }
+
+  void _replaceAllMasterNames(String main, String opponent) {
+    const oldMainNames = ['Kanza', 'Intan Permatasari', 'Intan'];
+    const oldOpponentNames = ['Criminal 1', 'Nguyen Thi Huong', 'Nguyen'];
+    for (final c in [title, mainCharacter, environment, combatDna, shortChoreo, timing, camera, lighting, style, dialogue, negative]) {
+      for (final old in oldMainNames) c.text = c.text.replaceAll(old, main);
+      for (final old in oldOpponentNames) c.text = c.text.replaceAll(old, opponent);
+    }
+    if (opponents.isNotEmpty) opponents[0].text = opponent;
+    if (format == 'DUA JALAN SANG JUARA') {
+      environment.text = environment.text.replaceAll('Intan vs Nguyen Thi Huong', '$main vs $opponent');
+    }
   }
 
   void generateFromInstruction() {
@@ -594,74 +824,24 @@ $env""";
     final opponent = fighters.length > 1 ? fighters[1] : '';
     final loc = _extractLocation(input);
     final time = _extractTime(input);
-    final choreography = _extractAfterKeywords(input, ['koreo ', 'koreografi ', 'gunakan ', 'pakai ', 'gerakan ']);
-    final cam = _extractAfterKeywords(input, ['kamera ', 'camera ', 'camera style ']);
+    final tone = _extractTone(input);
+    final cam = _extractCamera(input);
+    final movement = _movementKeywords(input);
+    final choreography = movement.join(', ');
 
-    if (main.isNotEmpty) {
-      mainCharacter.text = main;
-    }
-    if (opponent.isNotEmpty) {
-      opponentCount = format == 'STREET FIGHT' ? 5 : 1;
-      syncOpponents();
-      opponents[0].text = opponent;
-    }
-
-    if (loc.isNotEmpty) {
-      final timeText = time.isEmpty ? '' : ' during $time';
-      location.text = format == 'STREET FIGHT'
-          ? 'Modern Indonesian $loc$timeText.'
-          : 'International Martial Arts Championship venue in $loc.';
-      environment.text = _rewriteLocationEnvironment(environment.text, loc, time);
-    }
-
-    if (choreography.isNotEmpty) {
-      combatDna.text = '${combatDna.text}\n\nUSER-INSTRUCTED MOVEMENT:\n$choreography';
-      shortChoreo.text = '${shortChoreo.text}\n\nUSER CHOREOGRAPHY PRIORITY:\n$choreography';
-    }
-    if (cam.isNotEmpty) {
-      camera.text = '${camera.text}\n\nUSER CAMERA DIRECTION:\n$cam';
-    }
-
-    if (format == 'STREET FIGHT') {
-      title.text = '${main.isEmpty ? 'MAIN FIGHTER' : main} vs ${opponent.isEmpty ? 'OPPONENT' : opponent} — ${choreography.isEmpty ? 'EXTREME REALISTIC MARTIAL ARTS ACTION' : choreography.toUpperCase()}';
-      _replaceMasterNames(main.isEmpty ? 'Main Fighter' : main, opponent.isEmpty ? 'Opponent 1' : opponent);
-    } else if (format == 'DUA JALAN SANG JUARA') {
-      title.text = '${main.isEmpty ? 'Main Fighter' : main} vs ${opponent.isEmpty ? 'Opponent' : opponent} — ${martialStyle == 'CUSTOM / FOLLOW INPUT' ? 'Martial Arts' : martialStyle}';
-      _replaceMasterNames(main.isEmpty ? 'Main Fighter' : main, opponent.isEmpty ? 'Opponent' : opponent);
-    }
+    _applySceneContext(
+      input: input,
+      main: main,
+      opponent: opponent,
+      loc: loc,
+      time: time,
+      tone: tone,
+      choreography: choreography,
+      cam: cam,
+    );
 
     setState(() {});
     generate();
-  }
-
-  String _rewriteLocationEnvironment(String current, String loc, String time) {
-    var e = current;
-    if (format == 'STREET FIGHT') {
-      e = e.replaceAll(RegExp(r'parking area', caseSensitive: false), loc)
-          .replaceAll(RegExp(r'sports-complex', caseSensitive: false), 'urban')
-          .replaceAll(RegExp(r'behind a modern sports building,?', caseSensitive: false), 'within the $loc,');
-      if (time.isNotEmpty) {
-        e = e.replaceAll(RegExp(r'late-afternoon', caseSensitive: false), time);
-      }
-    } else if (format == 'DUA JALAN SANG JUARA') {
-      e = e.replaceAll(RegExp(r'International Martial Arts Championship in Malaysia', caseSensitive: false), 'International Martial Arts Championship in $loc');
-    }
-    return e;
-  }
-
-  void _replaceMasterNames(String main, String opponent) {
-    final oldMain = format == 'STREET FIGHT' ? 'Kanza' : 'Intan';
-    final oldOpp = format == 'STREET FIGHT' ? 'Criminal 1' : 'Nguyen';
-    for (final c in [title, mainCharacter, environment, combatDna, shortChoreo, timing, camera, lighting, style, dialogue, negative]) {
-      c.text = c.text.replaceAll(oldMain, main).replaceAll(oldOpp, opponent);
-    }
-    for (var i = 0; i < opponents.length; i++) {
-      opponents[i].text = opponents[i].text.replaceAll(oldOpp, opponent);
-    }
-    if (format == 'DUA JALAN SANG JUARA') {
-      opponents[0].text = opponent;
-      environment.text = environment.text.replaceAll('Intan vs Nguyen Thi Huong', '$main vs $opponent');
-    }
   }
 
   String buildPrompt() {
@@ -756,7 +936,7 @@ ENVIRONMENT:
 ${_environment()}
 
 FIGHT STYLE:
-${_or(martialStyle == 'CUSTOM / FOLLOW INPUT' ? combatDna : TextEditingController(text: martialStyle), 'Authentic martial arts combat.')}
+${martialStyle == 'CUSTOM / FOLLOW INPUT' ? _or(combatDna, 'Authentic live-action movement adapted from the user instruction.') : martialStyle}
 
 ACTION / CHOREOGRAPHY:
 ${_or(shortChoreo, '')}
