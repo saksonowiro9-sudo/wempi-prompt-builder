@@ -73,6 +73,7 @@ class _PromptBuilderPageState extends State<PromptBuilderPage> {
   final mainCharacter = TextEditingController();
   final location = TextEditingController();
   final surface = TextEditingController();
+  final environment = TextEditingController();
   final combatDna = TextEditingController();
   final shortChoreo = TextEditingController();
   final timing = TextEditingController();
@@ -110,6 +111,7 @@ class _PromptBuilderPageState extends State<PromptBuilderPage> {
       mainCharacter,
       location,
       surface,
+      environment,
       combatDna,
       shortChoreo,
       timing,
@@ -154,7 +156,7 @@ class _PromptBuilderPageState extends State<PromptBuilderPage> {
   }
 
   void clearAll() {
-    for (final c in [title, mainCharacter, location, surface, combatDna, shortChoreo, timing, camera, lighting, style, dialogue, negative, ...opponents]) {
+    for (final c in [title, mainCharacter, location, surface, environment, combatDna, shortChoreo, timing, camera, lighting, style, dialogue, negative, ...opponents]) {
       c.clear();
     }
     setState(() {
@@ -186,12 +188,40 @@ class _PromptBuilderPageState extends State<PromptBuilderPage> {
     _set(mainCharacter, 'Kanza');
     _set(location, 'Modern Indonesian sports-complex parking area during late afternoon transitioning into early evening.');
     _set(surface, 'Large concrete parking area, realistic asphalt and concrete surfaces.');
+    _set(environment, '''large concrete parking area behind a modern sports building, realistic asphalt and concrete surfaces, metal fencing, building service entrances, exterior stairways, structural columns, parked motorcycles and several cars, utility poles and cables, drainage channels, illuminated building windows, subtle parking lights and distant city activity.
+The location must feel spacious enough for fast multi-directional movement.
+Warm late-afternoon light gradually mixing with cooler early-evening artificial lighting.
+Preserve spatial continuity throughout the entire fight.
+No location changes.
+No sudden environment transformation.''');
     _set(combatDna, """Extreme-speed anime-inspired martial arts translated into physically believable live-action movement.
 
 Kanza fights with extremely fluid, connected movement:
 fast hand combinations, palm parries, body slips, evasive footwork, short counters, low kicks, roundhouse kicks, directional changes and rapid repositioning.
 
-Her movement must feel like one continuous physical system.""");
+Her movement must feel like one continuous physical system.
+
+FLOW:
+ATTACK → PARRY → COUNTER → REPOSITION → EVADE → KICK → REPLANT → DIRECTION CHANGE → NEXT ATTACKER
+
+Never reset into a fighting stance between attacks.
+No idle moments.
+No posing.
+No unnecessary pauses.
+
+Every attack must show:
+preparation → execution → contact/near-miss → reaction → recovery → immediate transition.
+
+MULTI-TARGET COMBAT:
+All five criminals attack from different directions.
+They must NOT wait in a straight line.
+Kanza constantly changes angles and target priority.
+Attackers move independently and react naturally to Kanza's position.
+The five criminals must remain exactly five throughout the video.
+No duplicates.
+No spawning.
+No disappearing.
+No identity swapping.""");
     _set(shortChoreo, """0.0–2.0 SECONDS — OPENING COLLISION
 Start with a cinematic wide shot of the parking area.
 Criminal 1 suddenly closes distance and throws a fast straight punch.
@@ -332,8 +362,12 @@ Micro slow-motion is only used for selected near-miss moments. Combat never stop
   void _loadDjsjDefaults() {
     _set(title, 'Intan Permatasari vs Nguyen Thi Huong — Wushu Nanquan Tactical Exchange');
     _set(mainCharacter, 'Intan Permatasari (Wushu Nanquan – fast, fluid, agile, explosive)');
-    _set(location, 'International Martial Arts Championship in Malaysia. Indoor international arena.');
-    _set(surface, 'Blue competition mat. Official Competition Mat.');
+    _set(location, 'International Martial Arts Championship in Malaysia.');
+    _set(surface, 'Blue competition mat.');
+    _set(environment, '''Indoor international arena.
+Packed audience.
+Large LED screen above the arena showing the live Intan vs Nguyen Thi Huong match.
+Keep the arena and competition mat consistent.''');
     _set(combatDna, """Authentic Wushu Nanquan vs Authentic Wushu Nanquan.
 Fast tactical exchange.
 Focus on rhythm changes, angle changes, feints, timing, and clean scoring techniques.""");
@@ -460,28 +494,24 @@ No CGI.""");
   String _environment() {
     final loc = _or(location, '');
     final surf = _or(surface, '');
+    final env = _or(environment, '');
     if (format == 'DUA JALAN SANG JUARA') {
       return """Environment:
 $loc
 $surf
-Packed audience.
-Large LED screen above the arena showing the live ${_or(mainCharacter, 'Main Fighter')} vs ${_or(opponents.first, 'Opponent')} match.
-Keep the arena and competition mat consistent.""";
+$env""";
     }
     if (format == 'STREET FIGHT') {
       return """LOCATION:
 $loc
 
 Environment:
-$surf
-The environment provides believable obstacles, ground interaction and movement space.
-Preserve spatial continuity throughout the entire fight.
-No location changes.
-No sudden environment transformation.""";
+$env""";
     }
     return """Environment:
 $loc
-$surf""";
+$surf
+$env""";
   }
 
   String buildPrompt() {
@@ -521,16 +551,13 @@ FORMAT:
 $duration, $ratio, 4K, photorealistic live-action.
 
 REFERENCE:
-Image1 = ${_or(mainCharacter, 'Kanza')}
+Image1 = ${_or(mainCharacter, 'Main Fighter')}
 
 CHARACTER:
-Preserve ${_or(mainCharacter, 'Kanza')} from Image1 exactly:
-same face, facial structure, hairstyle, skin tone, age appearance, body proportions, physique, outfit, shoes, accessories and overall identity.
-
-Do not change her face, body, hairstyle or clothing.
-
+Preserve ${_or(mainCharacter, 'the main fighter')} exactly from Image1.
+Same face, facial structure, hairstyle, skin tone, age appearance, body proportions, physique, outfit, shoes, accessories and overall identity.
+Do not change face, body, hairstyle or clothing.
 No character morphing.
-
 No outfit changes.
 
 CAST:
@@ -539,83 +566,28 @@ $cast
 ${_environment()}
 
 VISUAL STYLE:
-${_or(style, 'Ultra-photorealistic live-action. Real human performers. Realistic anatomy. Realistic weight, gravity, contact and ground interaction. Modern Indonesian cinematic action film. Professional martial-arts stunt choreography. Natural directional motion blur. Cinematic depth of field. Realistic lighting and shadows. NO CGI-looking humans. NO anime characters. NO cartoon. NO 3D animation. NO supernatural powers. NO teleportation. NO floating. NO wire-fu. NO impossible jumps. NO exaggerated flying bodies.')}
+${_or(style, 'Ultra-photorealistic live-action. Real human performers. Realistic anatomy. Realistic weight, gravity, contact and ground interaction. Professional cinematic action film.')}
 
 COMBAT DNA:
-${_or(combatDna, 'Extreme-speed anime-inspired martial arts translated into physically believable live-action movement.')}
-
-FLOW:
-ATTACK → PARRY → COUNTER → REPOSITION → EVADE → KICK → REPLANT → DIRECTION CHANGE → NEXT ATTACKER
-
-Never reset into a fighting stance between attacks.
-No idle moments.
-No posing.
-No unnecessary pauses.
-
-Every attack must show:
-preparation → execution → contact/near-miss → reaction → recovery → immediate transition.
-
-MULTI-TARGET COMBAT:
-All five criminals attack from different directions.
-They must NOT wait in a straight line.
-Kanza constantly changes angles and target priority.
-Attackers move independently and react naturally to Kanza's position.
-The five criminals must remain exactly five throughout the video.
-No duplicates.
-No spawning.
-No disappearing.
-No identity swapping.
+${_or(combatDna, 'Fast, fluid, connected and physically believable martial-arts movement.')}
 
 ACTION / TIMING:
 ${_or(shortChoreo, 'Continuous realistic combat with logical attack, reaction, evasion, counter and repositioning.')}
 
-EXTREME SPEED PHYSICS:
-Every acceleration must follow:
-FOOT PLANT → KNEE COMPRESSION → PHYSICAL PUSH-OFF → EXPLOSIVE ACCELERATION → SHORT DIRECTIONAL MOTION BLUR → DISTANCE CROSSING → HARD REPLANT → ATTACK → CONTACT / NEAR MISS → IMMEDIATE NEXT MOVEMENT.
-No teleportation. The viewer must still perceive the physical transition between every movement. Use short directional speed blur only during explosive acceleration. Keep close-range hand and body actions readable.
-
-SPEED RAMP LOCK:
-EXTREME FAST → DANGEROUS NEAR MISS → 0.3 SECOND MICRO SLOW → DODGE → INSTANT SNAP BACK TO EXTREME SPEED → COUNTER → TARGET SWITCH → EXTREME FAST.
-Micro slow-motion is only used for selected near-miss moments.
-Combat never stops during the slow-motion moment.
+TIMING:
+${_or(timing, '$duration continuous action.')}
 
 CAMERA STYLE:
-${_or(camera, 'Replace the previous close handheld camera with a more cinematic reactive action-film camera. The camera remains physically operated and always follows the action, but with smoother controlled movement.')}
+${_or(camera, 'Cinematic reactive action-film camera with smooth tracking and readable full-body action.')}
 
-TIMING:
-${_or(timing, '$duration total.')}
-
-CAMERA RULE:
-The character moves first.
-The camera reacts second.
-Camera reaction should be approximately 0.1–0.2 seconds behind the action.
-Use smooth tracking, controlled lateral movement, short orbit, brief low angle, brief elevated perspective and smooth pullback.
-Avoid excessive handheld shake.
-No camera teleportation.
-No impossible camera movement.
-No random cuts.
-No sudden location changes.
-Maintain spatial continuity at all times.
-
-PRIORITY:
-1. Physical continuity
-2. Choreography quality
-3. Character identity
-4. Realistic human movement
-5. Camera cinematic quality
-6. Extreme speed
-
-The choreography must remain dense and continuous.
-Kanza must look like a highly trained professional martial artist, not a normal person randomly fighting.
-
-NEGATIVE PROMPT:
-${_or(negative, 'cartoon, anime character, manga, 3D animation, CGI human, plastic skin, video-game character, face morphing, body morphing, identity change, hairstyle change, outfit change, extra limbs, deformed hands, distorted anatomy, supernatural power, magic, teleportation, floating, wire-fu, impossible physics, impossible jump, exaggerated flying, random punching, random kicking, stiff movement, robotic movement, slow combat, idle stance, combat reset, attackers waiting in line, duplicate criminals, spawning criminals, disappearing criminals, identity swapping, location change, camera teleportation, excessive camera shake, excessive motion blur, unreadable choreography, excessive blood, gore, graphic injury, victory pose, final freeze pose.')}
+LIGHTING:
+${_or(lighting, 'Realistic cinematic lighting consistent with the location.')}
 
 AUDIO:
-${_or(dialogue, 'Natural location ambience, fast footsteps, realistic impacts, clothing movement and environmental reactions.')}
+${_or(dialogue, 'Natural location ambience, footsteps, clothing movement and realistic impacts.')}
 
-OUTPUT LANGUAGE:
-$language""";
+NEGATIVE PROMPT:
+${_or(negative, 'cartoon, anime, CGI, unrealistic physics, floating, teleportation, duplicate characters, identity swapping, spawning, disappearing, broken anatomy, freeze ending, static pose')}""";
     }
 
     return """Create a hyper-realistic live-action cinematic video.
@@ -746,6 +718,7 @@ $language""";
             section('SCENE'),
             field('Location / Venue', location, maxLines: 4),
             field('Competition Mat / Surface', surface, maxLines: 4),
+            field('Environment', environment, maxLines: 8),
             field('Combat DNA', combatDna, maxLines: 12),
             section('KOREO ENGINE'),
             field('Koreografi / ACTION', shortChoreo, maxLines: 18),
