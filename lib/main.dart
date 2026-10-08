@@ -673,16 +673,16 @@ Keep the movement natural and approachable without turning it into a heavy comba
   }
 
   String _dynamicNegativePrompt(String tone, String input) {
-    var n = _or(negative, '');
-    final lower = input.toLowerCase();
-    if (tone == 'LIGHT COMEDY / PLAYFUL ACTION') {
-      return '$n, serious combat tone, grim expression throughout, emotionless performance, generic serious fight choreography, comedy ignored';
+    // Keep the Negative Prompt intentionally short and visual.
+    // Do not add tone/opposite-story instructions here because they can
+    // contradict the user's scene and confuse video generators.
+    if (format == 'DUA JALAN SANG JUARA') {
+      return 'cartoon, anime, CGI, 3D animation, sketch, deformed anatomy, plastic-looking humans';
     }
-    if (lower.contains('menghilang') && lower.contains('muncul')) {
-      n = n.replaceAll(RegExp(r'\bteleportation,?\s*', caseSensitive: false), '');
-      return '$n, CGI disappearance, digital dissolve, visual glitch, duplicated body';
+    if (format == 'STREET FIGHT') {
+      return 'cartoon, anime, CGI, 3D animation, sketch, deformed anatomy, plastic-looking humans';
     }
-    return n;
+    return 'cartoon, anime, CGI, 3D animation, sketch, deformed anatomy, plastic-looking humans';
   }
 
   void _applySceneContext({
@@ -868,7 +868,7 @@ ${_or(style, 'Ultra realistic. Natural skin. Subtle halftone shading (color).')}
 Audio:
 ${_or(dialogue, 'Natural arena ambience.')}
 Negative Prompt:
-${_or(negative, 'cartoon, anime, CGI, freeze ending, static pose')}""";
+${_or(negative, 'cartoon, anime, CGI, 3D animation, sketch, deformed anatomy, plastic-looking humans')}""";
     }
 
     if (format == 'STREET FIGHT') {
@@ -917,7 +917,7 @@ AUDIO:
 ${_or(dialogue, 'Natural location ambience, footsteps, clothing movement and realistic impacts.')}
 
 NEGATIVE PROMPT:
-${_or(negative, 'cartoon, anime, CGI, unrealistic physics, floating, teleportation, duplicate characters, identity swapping, spawning, disappearing, broken anatomy, freeze ending, static pose')}""";
+${_or(negative, 'cartoon, anime, CGI, 3D animation, sketch, deformed anatomy, plastic-looking humans')}""";
     }
 
     return """Create a hyper-realistic live-action cinematic video.
