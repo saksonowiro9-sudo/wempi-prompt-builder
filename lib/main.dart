@@ -12,7 +12,7 @@ class WempiPromptBuilderApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-        title: 'WEMPI PROMPT BUILDER V2',
+        title: 'WEMPI PROMPT BUILDER V3',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           brightness: Brightness.dark,
@@ -82,6 +82,8 @@ class _PromptBuilderPageState extends State<PromptBuilderPage> {
   final style = TextEditingController();
   final dialogue = TextEditingController();
   final negative = TextEditingController();
+  final sceneInstruction = TextEditingController();
+  String editorMode = 'PROMPT GENERATOR';
 
   String format = 'STREET FIGHT';
   String combatType = '1 VS MANY';
@@ -120,6 +122,7 @@ class _PromptBuilderPageState extends State<PromptBuilderPage> {
       style,
       dialogue,
       negative,
+      sceneInstruction,
       ...opponents,
     ]) {
       c.dispose();
@@ -514,6 +517,153 @@ $surf
 $env""";
   }
 
+  String _extractBetween(String text, List<String> starts, List<String> ends) {
+    final lower = text.toLowerCase();
+    for (final start in starts) {
+      final i = lower.indexOf(start.toLowerCase());
+      if (i < 0) continue;
+      final from = i + start.length;
+      var to = text.length;
+      for (final end in ends) {
+        final j = lower.indexOf(end.toLowerCase(), from);
+        if (j >= 0 && j < to) to = j;
+      }
+      final value = text.substring(from, to).trim().replaceAll(RegExp(r'[,.!?]+$'), '').trim();
+      if (value.isNotEmpty) return value;
+    }
+    return '';
+  }
+
+  List<String> _extractFighters(String text) {
+    final patterns = [
+      RegExp(r'(.+?)\s+(?:bertarung dengan|melawan|vs\.?|versus)\s+(.+?)(?:,|\.|\s+lokasi\b|\s+di\b|\s+dengan\b|$)', caseSensitive: false),
+    ];
+    for (final p in patterns) {
+      final m = p.firstMatch(text.trim());
+      if (m != null) {
+        final a = m.group(1)?.trim();
+        final b = m.group(2)?.trim();
+        if (a != null && b != null && a.isNotEmpty && b.isNotEmpty) return [a, b];
+      }
+    }
+    return [];
+  }
+
+  String _extractLocation(String text) {
+    var v = _extractBetween(text, ['lokasi di ', 'lokasi: ', 'lokasi ', 'tempat di ', 'venue di '],
+        [' dengan ', ' gunakan ', ' pakai ', ' kamera ', ' koreografi ', ' masukin ', ' masukkan ', '.']);
+    if (v.isEmpty) {
+      final m = RegExp(r'\bdi\s+([^,.]+)', caseSensitive: false).firstMatch(text);
+      if (m != null) v = m.group(1)!.trim();
+    }
+    return v;
+  }
+
+  String _extractTime(String text) {
+    final lower = text.toLowerCase();
+    for (final t in ['pagi hari', 'siang hari', 'sore hari', 'malam hari', 'pagi', 'siang', 'sore', 'malam']) {
+      if (lower.contains(t)) return t;
+    }
+    return '';
+  }
+
+  String _extractAfterKeywords(String text, List<String> keys) {
+    final lower = text.toLowerCase();
+    for (final key in keys) {
+      final i = lower.indexOf(key.toLowerCase());
+      if (i >= 0) {
+        var value = text.substring(i + key.length).trim();
+        value = value.replaceFirst(RegExp(r'^[:\-]+\s*'), '');
+        value = value.split(RegExp(r'\s+(?:kamera|camera|lokasi|di lokasi|waktu)\s+', caseSensitive: false)).first;
+        value = value.replaceAll(RegExp(r'[.!?]+$'), '').trim();
+        if (value.isNotEmpty) return value;
+      }
+    }
+    return '';
+  }
+
+  void generateFromInstruction() {
+    final input = sceneInstruction.text.trim();
+    if (input.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Isi INSTRUKSI ADEGAN terlebih dahulu.')));
+      return;
+    }
+
+    final fighters = _extractFighters(input);
+    final main = fighters.isNotEmpty ? fighters[0] : '';
+    final opponent = fighters.length > 1 ? fighters[1] : '';
+    final loc = _extractLocation(input);
+    final time = _extractTime(input);
+    final choreography = _extractAfterKeywords(input, ['koreo ', 'koreografi ', 'gunakan ', 'pakai ', 'gerakan ']);
+    final cam = _extractAfterKeywords(input, ['kamera ', 'camera ', 'camera style ']);
+
+    if (main.isNotEmpty) {
+      mainCharacter.text = main;
+    }
+    if (opponent.isNotEmpty) {
+      opponentCount = format == 'STREET FIGHT' ? 5 : 1;
+      syncOpponents();
+      opponents[0].text = opponent;
+    }
+
+    if (loc.isNotEmpty) {
+      final timeText = time.isEmpty ? '' : ' during $time';
+      location.text = format == 'STREET FIGHT'
+          ? 'Modern Indonesian $loc$timeText.'
+          : 'International Martial Arts Championship venue in $loc.';
+      environment.text = _rewriteLocationEnvironment(environment.text, loc, time);
+    }
+
+    if (choreography.isNotEmpty) {
+      combatDna.text = '${combatDna.text}\n\nUSER-INSTRUCTED MOVEMENT:\n$choreography';
+      shortChoreo.text = '${shortChoreo.text}\n\nUSER CHOREOGRAPHY PRIORITY:\n$choreography';
+    }
+    if (cam.isNotEmpty) {
+      camera.text = '${camera.text}\n\nUSER CAMERA DIRECTION:\n$cam';
+    }
+
+    if (format == 'STREET FIGHT') {
+      title.text = '${main.isEmpty ? 'MAIN FIGHTER' : main} vs ${opponent.isEmpty ? 'OPPONENT' : opponent} — ${choreography.isEmpty ? 'EXTREME REALISTIC MARTIAL ARTS ACTION' : choreography.toUpperCase()}';
+      _replaceMasterNames(main.isEmpty ? 'Main Fighter' : main, opponent.isEmpty ? 'Opponent 1' : opponent);
+    } else if (format == 'DUA JALAN SANG JUARA') {
+      title.text = '${main.isEmpty ? 'Main Fighter' : main} vs ${opponent.isEmpty ? 'Opponent' : opponent} — ${martialStyle == 'CUSTOM / FOLLOW INPUT' ? 'Martial Arts' : martialStyle}';
+      _replaceMasterNames(main.isEmpty ? 'Main Fighter' : main, opponent.isEmpty ? 'Opponent' : opponent);
+    }
+
+    setState(() {});
+    generate();
+  }
+
+  String _rewriteLocationEnvironment(String current, String loc, String time) {
+    var e = current;
+    if (format == 'STREET FIGHT') {
+      e = e.replaceAll(RegExp(r'parking area', caseSensitive: false), loc)
+          .replaceAll(RegExp(r'sports-complex', caseSensitive: false), 'urban')
+          .replaceAll(RegExp(r'behind a modern sports building,?', caseSensitive: false), 'within the $loc,');
+      if (time.isNotEmpty) {
+        e = e.replaceAll(RegExp(r'late-afternoon', caseSensitive: false), time);
+      }
+    } else if (format == 'DUA JALAN SANG JUARA') {
+      e = e.replaceAll(RegExp(r'International Martial Arts Championship in Malaysia', caseSensitive: false), 'International Martial Arts Championship in $loc');
+    }
+    return e;
+  }
+
+  void _replaceMasterNames(String main, String opponent) {
+    final oldMain = format == 'STREET FIGHT' ? 'Kanza' : 'Intan';
+    final oldOpp = format == 'STREET FIGHT' ? 'Criminal 1' : 'Nguyen';
+    for (final c in [title, mainCharacter, environment, combatDna, shortChoreo, timing, camera, lighting, style, dialogue, negative]) {
+      c.text = c.text.replaceAll(oldMain, main).replaceAll(oldOpp, opponent);
+    }
+    for (var i = 0; i < opponents.length; i++) {
+      opponents[i].text = opponents[i].text.replaceAll(oldOpp, opponent);
+    }
+    if (format == 'DUA JALAN SANG JUARA') {
+      opponents[0].text = opponent;
+      environment.text = environment.text.replaceAll('Intan vs Nguyen Thi Huong', '$main vs $opponent');
+    }
+  }
+
   String buildPrompt() {
     final promptTitle = _or(title, 'UNTITLED CINEMATIC ACTION SCENE');
     final cast = _cast();
@@ -659,7 +809,7 @@ $language""";
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(
-          title: const Text('WEMPI PROMPT BUILDER V2'),
+          title: const Text('WEMPI PROMPT BUILDER V3'),
           centerTitle: true,
           backgroundColor: const Color(0xFF10131A),
         ),
@@ -668,9 +818,43 @@ $language""";
           children: [
             const Text('Cinematic Video Prompt Generator', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             const SizedBox(height: 6),
-            const Text('Select a master format, edit the defaults, then generate.', style: TextStyle(color: Colors.white60)),
-            const SizedBox(height: 22),
-            field('Project / Title', title, maxLines: 2),
+            const Text('V3 — Generate a complete prompt from one scene instruction.', style: TextStyle(color: Colors.white60)),
+            const SizedBox(height: 16),
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'PROMPT GENERATOR', label: Text('PROMPT GENERATOR'), icon: Icon(Icons.auto_awesome)),
+                ButtonSegment(value: 'MASTER EDITOR', label: Text('MASTER EDITOR'), icon: Icon(Icons.edit_note)),
+              ],
+              selected: {editorMode},
+              onSelectionChanged: (v) => setState(() => editorMode = v.first),
+            ),
+            if (editorMode == 'PROMPT GENERATOR') ...[
+              const SizedBox(height: 20),
+              section('V3 — INSTRUKSI ADEGAN'),
+              DropdownButtonFormField<String>(
+                value: format,
+                decoration: const InputDecoration(labelText: 'MASTER FORMAT'),
+                items: ['STREET FIGHT', 'DUA JALAN SANG JUARA', 'CUSTOM']
+                    .map((x) => DropdownMenuItem(value: x, child: Text(x)))
+                    .toList(),
+                onChanged: (v) => applyFormatDefaults(v ?? format),
+              ),
+              const SizedBox(height: 14),
+              field('INSTRUKSI ADEGAN', sceneInstruction, maxLines: 8,
+                hint: 'Contoh: Wempi bertarung dengan Aisyah, lokasi di taman kota sore hari. Gunakan taijutsu cepat dengan parry, body slip, spinning kick dan counter. Kamera low angle tracking dengan orbit pendek.'),
+              const SizedBox(height: 4),
+              const Text('Tulis bebas. Engine offline akan menerapkan karakter, lokasi, waktu, koreografi dan kamera ke Master yang dipilih.', style: TextStyle(color: Colors.white54, height: 1.35)),
+              const SizedBox(height: 14),
+              SizedBox(height: 52, child: FilledButton.icon(
+                onPressed: generateFromInstruction,
+                icon: const Icon(Icons.auto_awesome),
+                label: const Text('GENERATE PROMPT V3', style: TextStyle(fontWeight: FontWeight.bold)),
+              )),
+              const SizedBox(height: 24),
+            ],
+            if (editorMode == 'MASTER EDITOR') ...[
+              const SizedBox(height: 22),
+              field('Project / Title', title, maxLines: 2),
             section('FORMAT / PROMPT ENGINE'),
             DropdownButtonFormField<String>(
               value: format,
@@ -758,12 +942,13 @@ $language""";
                   .toList(),
               onChanged: (v) => setState(() => language = v ?? language),
             ),
+            ],
           ],
         ),
         floatingActionButton: FloatingActionButton.extended(
-          onPressed: generate,
+          onPressed: editorMode == 'PROMPT GENERATOR' ? generateFromInstruction : generate,
           icon: const Icon(Icons.auto_awesome),
-          label: const Text('GENERATE PROMPT'),
+          label: Text(editorMode == 'PROMPT GENERATOR' ? 'GENERATE V3' : 'GENERATE PROMPT'),
         ),
       );
 }
